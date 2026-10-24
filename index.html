@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="./style.css">
 </head>
-<body class="min-h-screen flex flex-col antialiased">
+<body class="min-h-screen flex flex-col antialiased relative">
 
     <header class="sticky top-0 z-50 bg-[#f6f1e3]/95 backdrop-blur-md border-b border-[#e2d7c3] shadow-md">
         
@@ -49,7 +49,7 @@
         </div>
     </main>
 
-    <footer class="border-t border-[#e2d7c3] bg-[#efe8d8] py-8 px-4 mt-12">
+    <footer class="border-t border-[#e2d7c3] bg-[#efe8d8] py-8 px-4 mt-12 pb-24">
         <div class="max-w-md mx-auto text-center space-y-3">
             
             <div class="p-4 rounded-xl border border-[#d6c7b0] bg-[#fcf9f2] shadow-sm">
@@ -63,7 +63,7 @@
                 <span data-i18n="serviceCharge">• Обслуживание 10% •</span>
             </div>
 
-            <!-- Контакты ресторана: добавлены внизу страницы без изменения существующего дизайна -->
+            <!-- Контакты ресторана -->
             <div class="mt-5 pt-5 border-t border-[#d6c7b0]/60 space-y-4 text-sm text-[#5c4738]">
                 <div class="flex flex-col items-center gap-1">
                     <i class="fa-brands fa-whatsapp text-emerald-700 text-xl" aria-hidden="true"></i>
@@ -106,6 +106,71 @@
             </div>
         </div>
     </footer>
+
+    <!-- Плавающая кнопка корзины -->
+    <button id="floatingCartBtn" onclick="toggleCart()" class="fixed bottom-6 right-6 z-[90] bg-[#183e2b] text-[#f7f3e9] w-14 h-14 md:w-16 md:h-16 rounded-full shadow-2xl flex items-center justify-center transform transition-all duration-300 translate-y-32 opacity-0 hover:scale-105 border-2 border-emerald-500/30">
+        <i class="fa-solid fa-basket-shopping text-xl md:text-2xl"></i>
+        <span id="floatingCartQty" class="absolute -top-1 -right-1 bg-red-500 text-white text-[11px] font-bold w-5 h-5 md:w-6 md:h-6 flex items-center justify-center rounded-full border border-white">0</span>
+    </button>
+
+    <!-- Модальное окно корзины -->
+    <div id="cartModal" class="fixed inset-0 z-[100] hidden flex-col justify-end pointer-events-none">
+        <!-- Затемнение фона -->
+        <div id="cartBackdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm opacity-0 transition-opacity duration-300 pointer-events-auto" onclick="toggleCart()"></div>
+        
+        <!-- Сама панель корзины -->
+        <div id="cartPanel" class="relative bg-[#fcf9f2] w-full max-w-lg mx-auto h-[85vh] rounded-t-3xl shadow-2xl flex flex-col transform translate-y-full transition-transform duration-300 pointer-events-auto">
+            <!-- Ручка для свайпа -->
+            <div class="w-full flex justify-center pt-3 pb-2 cursor-pointer" onclick="toggleCart()">
+                <div class="w-12 h-1.5 bg-[#d6c7b0] rounded-full"></div>
+            </div>
+
+            <!-- Шапка корзины -->
+            <div class="px-6 pb-4 border-b border-[#e2d7c3] flex justify-between items-center shrink-0">
+                <h3 class="text-2xl md:text-3xl font-bold font-serif-title text-[#3d2b1f]" data-i18n="cartTitle">Ваш заказ</h3>
+                <button onclick="toggleCart()" class="w-8 h-8 flex justify-center items-center rounded-full bg-[#efe8d8] text-[#8c7a6b] hover:text-[#3d2b1f] hover:bg-[#d6c7b0] transition-colors">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Список блюд -->
+            <div class="flex-1 overflow-y-auto px-4 md:px-6 py-2 no-scrollbar">
+                <div id="cartEmptyMsg" class="h-full flex flex-col items-center justify-center text-[#8c7a6b] space-y-3 hidden">
+                    <i class="fa-solid fa-basket-shopping text-4xl md:text-5xl opacity-20"></i>
+                    <p class="font-medium text-sm md:text-base text-center" data-i18n="cartEmpty">Ваша корзина пуста</p>
+                </div>
+                <div id="cartItemsContainer" class="pb-4 space-y-2.5 mt-3">
+                    <!-- Javascript will inject items here -->
+                </div>
+            </div>
+
+            <!-- Итоги и инструкция -->
+            <div id="cartFooter" class="bg-[#efe8d8] border-t border-[#e2d7c3] px-6 py-5 space-y-4 rounded-t-2xl shadow-[0_-4px_15px_-3px_rgba(0,0,0,0.1)] shrink-0">
+                <div class="space-y-1.5 text-sm md:text-base text-[#5c4738]">
+                    <div class="flex justify-between items-center">
+                        <span data-i18n="subtotal">Сумма:</span>
+                        <span id="cartSubtotal" class="font-bold text-[#3d2b1f]">0 ₸</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span data-i18n="service">Обслуживание (10%):</span>
+                        <span id="cartService" class="font-bold text-[#3d2b1f]">0 ₸</span>
+                    </div>
+                    <div class="flex justify-between items-center pt-2 border-t border-[#d6c7b0] text-lg md:text-xl mt-1">
+                        <strong class="font-serif-title font-bold text-[#183e2b]" data-i18n="total">Итого к оплате:</strong>
+                        <strong id="cartTotal" class="font-bold text-[#183e2b]">0 ₸</strong>
+                    </div>
+                </div>
+
+                <div class="bg-emerald-700/10 border border-emerald-700/20 rounded-xl p-3.5 flex items-start gap-3">
+                    <i class="fa-solid fa-bell-concierge text-emerald-700 text-xl md:text-2xl mt-0.5 shrink-0"></i>
+                    <p class="text-xs md:text-sm text-emerald-900 font-medium leading-relaxed" data-i18n="waiterHint">
+                        Чтобы вызвать официанта и оформит заказ, нажмите кнопку на вашем столе.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="./script.js"></script>
 </body>
 </html>
