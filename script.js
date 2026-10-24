@@ -474,6 +474,8 @@ const fullMenuData = [
 ];
 
 let currentLanguage = 'ru';
+let cart = {};
+let isCartOpen = false;
 
 // Қазақша аудармалар
 const kk = {
@@ -488,7 +490,13 @@ const kk = {
         addressTitle: 'Мекенжайымыз',
         hoursTitle: 'Жұмыс уақыты',
         hoursValue: 'Күн сайын: 10:00–00:00',
-        dishes: 'тағам'
+        dishes: 'тағам',
+        cartTitle: 'Сіздің тапсырысыңыз',
+        cartEmpty: 'Себетіңіз бос. Мәзірден дәмді бірдеңе таңдаңыз!',
+        subtotal: 'Сомасы:',
+        service: 'Қызмет көрсету (10%):',
+        total: 'Төлем жиынтығы:',
+        waiterHint: 'Даяшыны шақырып, тапсырысты айту үшін үстеліңіздегі батырманы басыңыз.'
     },
     categories: {
         'Салаты':'Салаттар',
@@ -649,7 +657,7 @@ const kk = {
         'Трайфл': ['Трайфл', 'бисквит, кремчиз, өрік/дие джем, кілегей'],
         'Шоколадный фондан': ['Шоколадты фондан', ''],
         'Шоколадный фондан с мороженым': ['Балмұздақ косылған шоколадты фондан', ''],
-        'Шокола в ассортименте': ['Шоколад ассортиментте', ''],
+        'Шоколад в ассортименте': ['Шоколад ассортиментте', ''],
         'Шоколад “Казахстан”': ['“Қазақстан” шоколады', ''],
         'Мороженое пломбир/шоколад': ['Пломбир/шоколад балмұздағы', ''],
         'Фруктовое ассорти': ['Желі-жеміс ассортиі', ''],
@@ -737,6 +745,7 @@ function toggleLanguage() {
     currentLanguage = currentLanguage === 'ru' ? 'kk' : 'ru';
     document.documentElement.lang = currentLanguage === 'kk' ? 'kk' : 'ru';
     document.getElementById('languageToggle').textContent = currentLanguage === 'ru' ? 'ҚАЗАҚША' : 'РУССКИЙ';
+    
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.dataset.i18n;
         el.textContent = currentLanguage === 'kk' ? kk.ui[key] : ({
@@ -749,11 +758,19 @@ function toggleLanguage() {
             instagramTitle: 'Мы в Instagram',
             addressTitle: 'Наш адрес',
             hoursTitle: 'График работы',
-            hoursValue: 'Ежедневно: с 10:00 до 00:00'
+            hoursValue: 'Ежедневно: с 10:00 до 00:00',
+            cartTitle: 'Ваш заказ',
+            cartEmpty: 'Ваша корзина пуста',
+            subtotal: 'Сумма:',
+            service: 'Обслуживание (10%):',
+            total: 'Итого к оплате:',
+            waiterHint: 'Чтобы вызвать официанта и продиктовать заказ, нажмите кнопку на вашем столе.'
         })[key];
     });
+    
     renderNav();
     renderMenu();
+    updateCartUI();
     setupScrollSpy();
 }
 
@@ -776,6 +793,7 @@ function renderNav() {
     `).join('');
 }
 
+// Отрисовка меню с красивой зеленой кнопкой-плюсиком рядом с ценой
 function renderMenu() {
     const container = document.getElementById('fullMenuContainer');
     container.innerHTML = fullMenuData.map(section => `
@@ -793,29 +811,172 @@ function renderMenu() {
 
             <!-- Items list -->
             <div class="space-y-4">
-                ${section.items.map(item => `
+                ${section.items.map(item => {
+                    const prices = item.price.split('/').map(p => p.trim());
+                    const weights = item.weight ? item.weight.split('/').map(w => w.trim()) : [];
+                    
+                    let priceBlockHtml = '<div class="flex flex-col gap-1.5 shrink-0 items-end">';
+                    prices.forEach((p, idx) => {
+                        const w = weights[idx] || (weights.length > 0 ? weights[0] : '');
+                        const cleanPrice = parseInt(p.replace(/\D/g, ''), 10);
+                        const priceStr = p.replace('₸', '').trim() + ' ₸';
+                        
+                        priceBlockHtml += `
+                            <div class="flex items-center gap-2.5">
+                                ${w ? `<span class="text-[10px] md:text-xs text-[#8c7a6b] font-medium leading-none">${w}</span>` : ''}
+                                <span class="font-extrabold text-base md:text-lg text-[#3d2b1f]">${priceStr}</span>
+                                <button onclick="addToCart('${item.name.replace(/'/g, "\\'")}', ${cleanPrice}, '${w}', '${priceStr}')"
+                                        aria-label="Добавить в корзину"
+                                        class="w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded-full bg-emerald-700 hover:bg-emerald-800 text-white shadow transition-all transform hover:scale-105 active:scale-95 shrink-0">
+                                    <i class="fa-solid fa-plus text-xs"></i>
+                                </button>
+                            </div>
+                        `;
+                    });
+                    priceBlockHtml += '</div>';
+
+                    return `
                     <div class="craft-card rounded-xl p-4 md:p-5">
-                        <div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 sm:gap-4 w-full">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
                             <div class="font-bold text-base md:text-lg text-[#3d2b1f] font-serif-title tracking-wide leading-snug">
                                 ${translate(item.name)}
                             </div>
-                            <div class="hidden sm:block flex-grow dots-leader"></div>
-                            <div class="flex items-baseline gap-2 shrink-0">
-                                ${item.weight ? `<span class="text-xs text-[#8c7a6b] font-medium">${item.weight}</span>` : ''}
-                                <span class="font-extrabold text-base md:text-lg text-[#3d2b1f]">${item.price}</span>
-                            </div>
+                            <div class="hidden sm:block flex-grow dots-leader self-end mb-2"></div>
+                            ${priceBlockHtml}
                         </div>
                         ${item.desc ? `
-                        <p class="text-xs md:text-sm text-[#6e5d4f] mt-1.5 leading-relaxed">
+                        <p class="text-xs md:text-sm text-[#6e5d4f] mt-2.5 leading-relaxed">
                             ${translateDescription(item.name, item.desc)}
                         </p>
                         ` : ''}
                     </div>
-                `).join('')}
+                    `;
+                }).join('')}
             </div>
         </section>
     `).join('');
 }
+
+
+// === ЛОГИКА КОРЗИНЫ ===
+
+function addToCart(name, price, weight, priceStr) {
+    const key = `${name}_${weight}`;
+    
+    if (cart[key]) {
+        cart[key].qty += 1;
+    } else {
+        cart[key] = { name, price, weight, qty: 1, priceStr };
+    }
+    updateCartUI();
+    
+    const fab = document.getElementById('floatingCartBtn');
+    if(fab) {
+        fab.classList.add('scale-110');
+        setTimeout(() => fab.classList.remove('scale-110'), 150);
+    }
+}
+
+function updateCartQty(key, delta) {
+    if (!cart[key]) return;
+    cart[key].qty += delta;
+    if (cart[key].qty <= 0) {
+        delete cart[key];
+    }
+    updateCartUI();
+}
+
+function toggleCart() {
+    const modal = document.getElementById('cartModal');
+    const backdrop = document.getElementById('cartBackdrop');
+    const panel = document.getElementById('cartPanel');
+
+    if (isCartOpen) {
+        backdrop.classList.remove('opacity-100');
+        backdrop.classList.add('opacity-0');
+        panel.classList.remove('translate-y-0');
+        panel.classList.add('translate-y-full');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }, 300);
+    } else {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        void modal.offsetWidth;
+        backdrop.classList.remove('opacity-0');
+        backdrop.classList.add('opacity-100');
+        panel.classList.remove('translate-y-full');
+        panel.classList.add('translate-y-0');
+    }
+    isCartOpen = !isCartOpen;
+}
+
+function updateCartUI() {
+    const container = document.getElementById('cartItemsContainer');
+    const emptyMsg = document.getElementById('cartEmptyMsg');
+    const subtotalEl = document.getElementById('cartSubtotal');
+    const serviceEl = document.getElementById('cartService');
+    const totalEl = document.getElementById('cartTotal');
+    const floatingBtn = document.getElementById('floatingCartBtn');
+    const floatingQty = document.getElementById('floatingCartQty');
+
+    let totalItems = 0;
+    let subtotal = 0;
+    let html = '';
+
+    for (const key in cart) {
+        const item = cart[key];
+        totalItems += item.qty;
+        subtotal += item.price * item.qty;
+        
+        html += `
+            <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-[#e2d7c3] shadow-sm">
+                <div class="flex-1 min-w-0 pr-3">
+                    <h4 class="font-bold text-[#3d2b1f] text-sm md:text-base leading-tight">${translate(item.name)}</h4>
+                    <div class="flex items-center gap-2 mt-1">
+                        ${item.weight ? `<span class="text-[11px] text-[#8c7a6b] font-medium leading-none">${item.weight}</span>` : ''}
+                        <span class="text-xs font-bold text-emerald-700">${item.priceStr}</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 bg-[#fcf9f2] rounded-lg border border-[#d6c7b0] p-1 shrink-0">
+                    <button onclick="updateCartQty('${key}', -1)" class="w-7 h-7 flex justify-center items-center rounded bg-white text-[#3d2b1f] shadow-sm hover:bg-red-50 hover:text-red-600 transition-colors"><i class="fa-solid fa-minus text-xs"></i></button>
+                    <span class="w-4 text-center font-bold text-sm text-[#3d2b1f]">${item.qty}</span>
+                    <button onclick="updateCartQty('${key}', 1)" class="w-7 h-7 flex justify-center items-center rounded bg-white text-[#3d2b1f] shadow-sm hover:bg-emerald-50 hover:text-emerald-600 transition-colors"><i class="fa-solid fa-plus text-xs"></i></button>
+                </div>
+            </div>
+        `;
+    }
+
+    if (totalItems === 0) {
+        emptyMsg.classList.remove('hidden');
+        container.innerHTML = '';
+        floatingBtn.classList.remove('translate-y-0', 'opacity-100');
+        floatingBtn.classList.add('translate-y-32', 'opacity-0');
+        if(isCartOpen) toggleCart();
+    } else {
+        emptyMsg.classList.add('hidden');
+        container.innerHTML = html;
+        floatingBtn.classList.remove('translate-y-32', 'opacity-0');
+        floatingBtn.classList.add('translate-y-0', 'opacity-100');
+    }
+
+    floatingQty.textContent = totalItems;
+    
+    const service = subtotal * 0.10;
+    const total = subtotal + service;
+
+    subtotalEl.textContent = formatPrice(subtotal);
+    serviceEl.textContent = formatPrice(service);
+    totalEl.textContent = formatPrice(total);
+}
+
+function formatPrice(num) {
+    return num.toLocaleString('ru-RU') + ' ₸';
+}
+
+
+// === НАВИГАЦИЯ И СКРОЛЛ ===
 
 function jumpToSection(event, catId) {
     event.preventDefault();
